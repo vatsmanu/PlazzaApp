@@ -26,12 +26,20 @@ export function usePermissions(): PermissionsState {
 
   const fetchCoords = useCallback(async () => {
     try {
+      // Try last known position first — instant, no GPS spin-up needed
+      const last = await Location.getLastKnownPositionAsync({});
+      if (last) {
+        setLocationCoords({ lat: last.coords.latitude, lng: last.coords.longitude });
+        return;
+      }
+      // Fall back to a fresh fix with a 10 s timeout
       const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Low,
+        accuracy: Location.Accuracy.Balanced,
+        timeInterval: 10000,
       });
       setLocationCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
     } catch {
-      // location granted but coords unavailable (emulator etc.)
+      // coords unavailable — banner simply won't show the delivery line
     }
   }, []);
 

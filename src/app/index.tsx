@@ -34,10 +34,12 @@ function PermissionBanner() {
     <View style={styles.permBanner}>
       <Text style={styles.permDebug}>
         📍 {location} · 🔔 {notification}
-        {locationCoords
-          ? `  · Delivering to: ${locationCoords.lat.toFixed(4)}, ${locationCoords.lng.toFixed(4)}`
-          : ''}
       </Text>
+      {locationCoords && (
+        <Text style={styles.deliveryText} accessibilityLabel={`Delivering to ${locationCoords.lat.toFixed(4)}, ${locationCoords.lng.toFixed(4)}`}>
+          📦 Delivering to: {locationCoords.lat.toFixed(4)}, {locationCoords.lng.toFixed(4)}
+        </Text>
+      )}
       {blocked && (
         <View style={styles.blockedRow}>
           <Text style={styles.blockedText}>
@@ -223,6 +225,7 @@ const styles = StyleSheet.create({
   // Permission banner
   permBanner: { backgroundColor: '#E8F4FD', paddingHorizontal: 14, paddingVertical: 8, gap: 6 },
   permDebug: { fontSize: 11, color: '#555', fontFamily: 'monospace' },
+  deliveryText: { fontSize: 13, color: '#208AEF', fontWeight: '600' },
   blockedRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   blockedText: { fontSize: 12, color: '#C62828', flex: 1 },
   settingsBtn: {
