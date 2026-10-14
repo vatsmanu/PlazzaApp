@@ -47,6 +47,11 @@ export const COUPON_RULES: Record<CouponCode, CouponRule> = {
     isOneTime: true,
     isValid: (itemTotal, usedOneTime) =>
       itemTotal >= 200 && !usedOneTime.includes('FIRST100'),
+    invalidReasonFor: (itemTotal: number, usedOneTime: CouponCode[]) => {
+      if (usedOneTime.includes('FIRST100')) return 'FIRST100 has already been used.';
+      if (itemTotal < 200) return 'FIRST100 requires a minimum order of ₹200.';
+      return 'FIRST100 is not applicable.';
+    },
     computeDiscount: (itemTotal) => Math.min(100, itemTotal),
     computeDeliveryFee: (itemTotal) => baseDelivery(itemTotal),
   },

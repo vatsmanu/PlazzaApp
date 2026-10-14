@@ -22,7 +22,7 @@ export default function AppTabs() {
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="explore">
+      <NativeTabs.Trigger name="cart">
         <NativeTabs.Trigger.Label>{cartCount > 0 ? `Cart (${cartCount})` : 'Cart'}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           src={require('@/assets/images/tabIcons/explore.png')}

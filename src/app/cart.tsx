@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -30,23 +30,25 @@ export default function CartScreen() {
   const placeOrder = useAppStore((s) => s.placeOrder);
 
   const [couponInput, setCouponInput] = useState('');
-  const prevCoupon = useRef(appliedCoupon);
 
-  // Show toast when coupon is auto-removed
-  useEffect(() => {
-    if (prevCoupon.current && !appliedCoupon) {
-      // coupon was removed — revalidateCoupon already ran, show toast
-    }
-    prevCoupon.current = appliedCoupon;
-  }, [appliedCoupon]);
+  const showAutoRemovedToast = (reason: string) => {
+    Toast.show({ type: 'error', text1: 'Coupon removed', text2: reason, visibilityTime: 3500 });
+  };
 
-  // Revalidate whenever cart changes
-  useEffect(() => {
-    const reason = revalidateCoupon();
-    if (reason) {
-      Toast.show({ type: 'error', text1: 'Coupon removed', text2: reason, visibilityTime: 3000 });
-    }
-  }, [cartItems]); // eslint-disable-line react-hooks/exhaustive-deps
+  const handleIncrement = (id: string) => {
+    incrementQty(id);
+    revalidateCoupon(showAutoRemovedToast);
+  };
+
+  const handleDecrement = (id: string) => {
+    decrementQty(id);
+    revalidateCoupon(showAutoRemovedToast);
+  };
+
+  const handleRemove = (id: string) => {
+    removeFromCart(id);
+    revalidateCoupon(showAutoRemovedToast);
+  };
 
   const bill = computeBill(cartItems, appliedCoupon, usedOneTimeCoupons);
 
@@ -100,7 +102,7 @@ export default function CartScreen() {
               <View style={styles.cartControls}>
                 <Pressable
                   style={styles.qtyBtn}
-                  onPress={() => decrementQty(item.medicine.id)}
+                  onPress={() => handleDecrement(item.medicine.id)}
                   accessibilityRole="button"
                   accessibilityLabel={`Decrease ${item.medicine.name} quantity`}
                   hitSlop={8}
@@ -110,7 +112,7 @@ export default function CartScreen() {
                 <Text style={styles.qtyText}>{item.qty}</Text>
                 <Pressable
                   style={[styles.qtyBtn, atMax && styles.qtyBtnDisabled]}
-                  onPress={() => !atMax && incrementQty(item.medicine.id)}
+                  onPress={() => !atMax && handleIncrement(item.medicine.id)}
                   accessibilityRole="button"
                   accessibilityLabel={`Increase ${item.medicine.name} quantity`}
                   accessibilityState={{ disabled: atMax }}
@@ -120,7 +122,7 @@ export default function CartScreen() {
                 </Pressable>
                 <Pressable
                   style={styles.removeBtn}
-                  onPress={() => removeFromCart(item.medicine.id)}
+                  onPress={() => handleRemove(item.medicine.id)}
                   accessibilityRole="button"
                   accessibilityLabel={`Remove ${item.medicine.name} from cart`}
                   hitSlop={8}

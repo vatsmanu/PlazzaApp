@@ -22,9 +22,10 @@ interface AppState {
   clearCart: () => void;
   applyCoupon: (code: CouponCode) => { success: boolean; message: string };
   removeCoupon: () => void;
-  /** Validates current coupon against current cart; removes + returns reason if invalid */
-  revalidateCoupon: () => string | null;
+  /** Validates current coupon against current cart; auto-removes if invalid and calls onRemoved(reason) */
+  revalidateCoupon: (onRemoved?: (reason: string) => void) => void;
   addRecentSearch: (query: string) => void;
+  clearRecentSearches: () => void;
   placeOrder: () => void;
 }
 
@@ -95,7 +96,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     );
     set({ cartItems: updated });
     persist({ ...get(), cartItems: updated });
-    get().revalidateCoupon();
   },
 
   decrementQty: (id) => {
@@ -104,14 +104,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       .filter((i) => i.qty > 0);
     set({ cartItems: updated });
     persist({ ...get(), cartItems: updated });
-    get().revalidateCoupon();
   },
 
   removeFromCart: (id) => {
     const updated = get().cartItems.filter((i) => i.medicine.id !== id);
     set({ cartItems: updated });
     persist({ ...get(), cartItems: updated });
-    get().revalidateCoupon();
   },
 
   clearCart: () => {
@@ -137,17 +135,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     persist({ ...get(), appliedCoupon: null });
   },
 
-  revalidateCoupon: () => {
+  revalidateCoupon: (onRemoved?: (reason: string) => void) => {
     const { appliedCoupon, cartItems, usedOneTimeCoupons } = get();
-    if (!appliedCoupon) return null;
+    if (!appliedCoupon) return;
     const itemTotal = cartItems.reduce((s, i) => s + i.medicine.price * i.qty, 0);
     const rule = COUPON_RULES[appliedCoupon];
     if (!rule.isValid(itemTotal, usedOneTimeCoupons)) {
+      // Pick the most specific reason available
+      const reason =
+        'invalidReasonFor' in rule
+          ? (rule as typeof rule & { invalidReasonFor: (t: number, u: CouponCode[]) => string }).invalidReasonFor(itemTotal, usedOneTimeCoupons)
+          : rule.invalidReason;
       set({ appliedCoupon: null });
       persist({ ...get(), appliedCoupon: null });
-      return rule.invalidReason;
+      onRemoved?.(reason);
     }
-    return null;
   },
 
   addRecentSearch: (query) => {
@@ -157,6 +159,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const updated = [trimmed, ...prev].slice(0, MAX_RECENT);
     set({ recentSearches: updated });
     persist({ ...get(), recentSearches: updated });
+  },
+
+  clearRecentSearches: () => {
+    set({ recentSearches: [] });
+    persist({ ...get(), recentSearches: [] });
   },
 
   placeOrder: () => {

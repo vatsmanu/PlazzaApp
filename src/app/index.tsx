@@ -21,7 +21,6 @@ const MEDICINES = catalog as Medicine[];
 
 function PermissionBanner() {
   const { location, notification, locationCoords, requestAll, openSettings } = usePermissions();
-
   const blocked = location === 'blocked' || notification === 'blocked';
   const allGranted = location === 'granted' && notification === 'granted';
 
@@ -32,10 +31,12 @@ function PermissionBanner() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <View style={styles.permBanner} accessibilityRole="none">
+    <View style={styles.permBanner}>
       <Text style={styles.permDebug}>
         📍 {location} · 🔔 {notification}
-        {locationCoords ? `  · Delivering to: ${locationCoords.lat.toFixed(4)}, ${locationCoords.lng.toFixed(4)}` : ''}
+        {locationCoords
+          ? `  · Delivering to: ${locationCoords.lat.toFixed(4)}, ${locationCoords.lng.toFixed(4)}`
+          : ''}
       </Text>
       {blocked && (
         <View style={styles.blockedRow}>
@@ -68,44 +69,73 @@ function PermissionBanner() {
   );
 }
 
+function RecentSearches({
+  searches,
+  onTap,
+  onClear,
+}: {
+  searches: string[];
+  onTap: (term: string) => void;
+  onClear: () => void;
+}) {
+  if (searches.length === 0) return null;
+  return (
+    <View style={styles.recentContainer}>
+      <View style={styles.recentHeader}>
+        <Text style={styles.recentTitle}>Recent Searches</Text>
+        <Pressable
+          onPress={onClear}
+          accessibilityRole="button"
+          accessibilityLabel="Clear all recent searches"
+          hitSlop={8}
+        >
+          <Text style={styles.clearAllText}>Clear all</Text>
+        </Pressable>
+      </View>
+      <View style={styles.recentChips}>
+        {searches.map((term) => (
+          <Pressable
+            key={term}
+            style={styles.chip}
+            onPress={() => onTap(term)}
+            accessibilityRole="button"
+            accessibilityLabel={`Search for ${term}`}
+            hitSlop={4}
+          >
+            <Text style={styles.chipText}>🕐 {term}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export default function HomeScreen() {
   const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
 
   const recentSearches = useAppStore((s) => s.recentSearches);
   const addRecentSearch = useAppStore((s) => s.addRecentSearch);
+  const clearRecentSearches = useAppStore((s) => s.clearRecentSearches);
   const hydrated = useAppStore((s) => s.hydrated);
 
-  const results = useMemo(() => {
-    if (!submitted || !query.trim()) return [];
+  const displayList = useMemo(() => {
     const q = query.trim().toLowerCase();
+    if (!q) return MEDICINES;
     return MEDICINES.filter(
       (m) => m.name.toLowerCase().includes(q) || m.salt.toLowerCase().includes(q),
     );
-  }, [query, submitted]);
+  }, [query]);
 
-  const handleSearch = () => {
-    if (!query.trim()) return;
-    setLoading(true);
-    setSubmitted(true);
-    addRecentSearch(query.trim());
-    // Simulate async search
-    setTimeout(() => setLoading(false), 300);
+  const handleSearch = (text: string) => {
+    setQuery(text);
+    if (text.trim()) addRecentSearch(text.trim());
   };
 
   const handleRecentTap = (term: string) => {
     setQuery(term);
-    setSubmitted(true);
-    setLoading(true);
-    setTimeout(() => setLoading(false), 300);
   };
 
-  const handleClear = () => {
-    setQuery('');
-    setSubmitted(false);
-    setLoading(false);
-  };
+  const handleClearQuery = () => setQuery('');
 
   if (!hydrated) {
     return (
@@ -115,84 +145,70 @@ export default function HomeScreen() {
     );
   }
 
+  const ListHeader = (
+    <>
+      <RecentSearches
+        searches={recentSearches}
+        onTap={handleRecentTap}
+        onClear={clearRecentSearches}
+      />
+      <View style={styles.catalogHeader}>
+        <Text style={styles.catalogTitle}>
+          {query.trim() ? `Results for "${query.trim()}"` : 'All Medicines'}
+        </Text>
+        <Text style={styles.catalogCount}>{displayList.length} items</Text>
+      </View>
+    </>
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <PermissionBanner />
 
+      {/* Search bar */}
       <View style={styles.searchRow}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search medicines by name or salt…"
+          placeholder="Search by name or salt…"
           placeholderTextColor="#999"
           value={query}
-          onChangeText={(t) => { setQuery(t); if (!t) handleClear(); }}
-          onSubmitEditing={handleSearch}
+          onChangeText={setQuery}
+          onSubmitEditing={() => handleSearch(query)}
           returnKeyType="search"
           accessibilityLabel="Search medicines"
-          accessibilityHint="Type a medicine name or salt and press search"
+          accessibilityHint="Type a medicine name or salt to filter the list"
         />
         {query.length > 0 && (
-          <Pressable onPress={handleClear} style={styles.clearBtn} accessibilityLabel="Clear search" hitSlop={8}>
+          <Pressable
+            onPress={handleClearQuery}
+            style={styles.clearBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Clear search"
+            hitSlop={8}
+          >
             <Text style={styles.clearText}>✕</Text>
           </Pressable>
         )}
-        <Pressable
-          style={styles.searchBtn}
-          onPress={handleSearch}
-          accessibilityRole="button"
-          accessibilityLabel="Search"
-          hitSlop={8}
-        >
-          <Text style={styles.searchBtnText}>🔍</Text>
-        </Pressable>
       </View>
 
-      {!submitted && recentSearches.length > 0 && (
-        <View style={styles.recentContainer}>
-          <Text style={styles.recentTitle}>Recent Searches</Text>
-          <View style={styles.recentChips}>
-            {recentSearches.map((term) => (
-              <Pressable
-                key={term}
-                style={styles.chip}
-                onPress={() => handleRecentTap(term)}
-                accessibilityRole="button"
-                accessibilityLabel={`Search for ${term}`}
-                hitSlop={4}
-              >
-                <Text style={styles.chipText}>{term}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {loading && (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#208AEF" />
-        </View>
-      )}
-
-      {!loading && submitted && results.length === 0 && (
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>No medicines found for "{query}"</Text>
-        </View>
-      )}
-
-      {!loading && results.length > 0 && (
+      {/* Full catalog (filtered when query active) */}
+      {displayList.length > 0 ? (
         <FlatList
-          data={results}
+          data={displayList}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <MedicineCard medicine={item} />}
+          ListHeaderComponent={ListHeader}
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         />
-      )}
-
-      {!submitted && recentSearches.length === 0 && (
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>Search for medicines above</Text>
-        </View>
+      ) : (
+        <>
+          {ListHeader}
+          <View style={styles.center}>
+            <Text style={styles.emptyText}>No medicines found for "{query}"</Text>
+          </View>
+        </>
       )}
 
       <Toast />
@@ -203,12 +219,9 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F5F7FA' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  permBanner: {
-    backgroundColor: '#E8F4FD',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    gap: 6,
-  },
+
+  // Permission banner
+  permBanner: { backgroundColor: '#E8F4FD', paddingHorizontal: 14, paddingVertical: 8, gap: 6 },
   permDebug: { fontSize: 11, color: '#555', fontFamily: 'monospace' },
   blockedRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   blockedText: { fontSize: 12, color: '#C62828', flex: 1 },
@@ -231,10 +244,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   grantBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+
+  // Search
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     margin: 14,
+    marginBottom: 8,
     backgroundColor: '#fff',
     borderRadius: 12,
     elevation: 2,
@@ -242,30 +258,39 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
   },
-  searchInput: {
-    flex: 1,
-    height: 48,
-    fontSize: 15,
-    color: '#1a1a1a',
-  },
-  clearBtn: { padding: 6 },
+  searchInput: { flex: 1, height: 48, fontSize: 15, color: '#1a1a1a' },
+  clearBtn: { padding: 6, minWidth: 32, minHeight: 32, alignItems: 'center', justifyContent: 'center' },
   clearText: { fontSize: 14, color: '#999' },
-  searchBtn: { padding: 8, minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  searchBtnText: { fontSize: 18 },
-  recentContainer: { paddingHorizontal: 14, marginBottom: 8 },
-  recentTitle: { fontSize: 13, color: '#666', marginBottom: 8, fontWeight: '600' },
+
+  // Recent searches
+  recentContainer: { paddingHorizontal: 14, paddingTop: 4, paddingBottom: 10 },
+  recentHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  recentTitle: { fontSize: 13, color: '#666', fontWeight: '600' },
+  clearAllText: { fontSize: 12, color: '#208AEF', fontWeight: '600' },
   recentChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     backgroundColor: '#E8F4FD',
     borderRadius: 20,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 7,
     minHeight: 36,
     justifyContent: 'center',
   },
   chipText: { fontSize: 13, color: '#208AEF', fontWeight: '600' },
+
+  // Catalog
+  catalogHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+  },
+  catalogTitle: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
+  catalogCount: { fontSize: 12, color: '#888' },
+
   list: { paddingHorizontal: 14, paddingBottom: 100 },
   emptyText: { fontSize: 15, color: '#888', textAlign: 'center', paddingHorizontal: 24 },
 });
